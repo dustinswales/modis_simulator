@@ -15,9 +15,9 @@ program modis_polyfits
 
   ! Testing parameters
   real, dimension(2), parameter :: &
-       re_liq_range = (/1.,40./),  & ! Liquid particle-size range (microns)
-       re_ice_range = (/1.,100./), & ! Ice particle-size range (microns)
-       tau_range    = (/1.,250./)    ! Optical-depth range (1)
+       re_liq_range = (/1.,35./),  & ! Liquid particle-size range (microns)
+       re_ice_range = (/1.,95./),  & ! Ice particle-size range (microns)
+       tau_range    = (/1.,20./)     ! Optical-depth range (1)
 
   ! Local varaibles
   integer :: iSize, nRe_liq, nRe_ice, iTau, nTau, ncid, status, dimID1, dimID2, &
@@ -57,14 +57,14 @@ program modis_polyfits
        (num_trial_res-1) * (/(i, i=0, num_trial_res-1)/)
   
   ! Initialize estimates for size retrieval
-  g_w_new(1:num_trial_res)  = get_g_nir_new(phaseIsLiquid,trial_re_w(1:num_trial_res))
-  w0_w_new(1:num_trial_res) = get_ssa_nir_new(phaseIsLiquid,trial_re_w(1:num_trial_res))
-  g_i_new(1:num_trial_res)  = get_g_nir_new(phaseIsIce,trial_re_i(1:num_trial_res))
-  w0_i_new(1:num_trial_res) = get_ssa_nir_new(phaseIsIce,trial_re_i(1:num_trial_res))
-  g_w_old(1:num_trial_res)  = get_g_nir_old(phaseIsLiquid,trial_re_w(1:num_trial_res))
-  w0_w_old(1:num_trial_res) = get_ssa_nir_old(phaseIsLiquid,trial_re_w(1:num_trial_res))
-  g_i_old(1:num_trial_res)  = get_g_nir_old(phaseIsIce,trial_re_i(1:num_trial_res))
-  w0_i_old(1:num_trial_res) = get_ssa_nir_old(phaseIsIce,trial_re_i(1:num_trial_res))
+  g_w_new(1:num_trial_res)  = get_g_nir_new(  phaseIsLiquid, trial_re_w(1:num_trial_res))
+  w0_w_new(1:num_trial_res) = get_ssa_nir_new(phaseIsLiquid, trial_re_w(1:num_trial_res))
+  g_i_new(1:num_trial_res)  = get_g_nir_new(  phaseIsIce,    trial_re_i(1:num_trial_res))
+  w0_i_new(1:num_trial_res) = get_ssa_nir_new(phaseIsIce,    trial_re_i(1:num_trial_res))
+  g_w_old(1:num_trial_res)  = get_g_nir_old(  phaseIsLiquid, trial_re_w(1:num_trial_res))
+  w0_w_old(1:num_trial_res) = get_ssa_nir_old(phaseIsLiquid, trial_re_w(1:num_trial_res))
+  g_i_old(1:num_trial_res)  = get_g_nir_old(  phaseIsIce,    trial_re_i(1:num_trial_res))
+  w0_i_old(1:num_trial_res) = get_ssa_nir_old(phaseIsIce,    trial_re_i(1:num_trial_res))
   ! ##################################################################################
   ! ##################################################################################
 
@@ -102,9 +102,9 @@ program modis_polyfits
      ssa_ice_new(iSize) = get_ssa_nir_new(phaseIsIce,real(iSize))
   enddo
   ! Optical depth
-  tau(1) = 0.3
-  do iTau=tau_range(1)+1,tau_range(2)
-     tau = real(iTau)
+  tau(1:5) = [0.3,0.5,0.9,1.3,3.0]
+  do iTau=tau_range(1)+5,tau_range(2)
+     tau(iTau) = real(iTau)
   enddo
   
   ! Run forward calculation(s), perform size retrieval...
@@ -112,24 +112,24 @@ program modis_polyfits
      ! Ice clouds
      do iSize=re_ice_range(1),re_ice_range(2)
         ! Old fits
-        refl_ice_old(iTau,iSize)  = compute_toa_reflectace(1, tau(iTau), g_liq_old(iSize), ssa_liq_old(iSize))
-        predicted_refl_ice_old(:) = two_stream_reflectance(tau(iTau), g_w_old, w0_w_old)
-        sizeICE_old(iTau,iSize)   = 1.0e-06*interpolate_to_min(trial_re_w, predicted_Refl_ice_old, refl_ice_old(iTau,iSize))
+        refl_ice_old(iTau,iSize)  = compute_toa_reflectace(1, tau(iTau), g_ice_old(iSize), ssa_ice_old(iSize))
+        predicted_refl_ice_old(:) = two_stream_reflectance(tau(iTau), g_i_old, w0_i_old)
+        sizeICE_old(iTau,iSize)   = interpolate_to_min(trial_re_i, predicted_Refl_ice_old, refl_ice_old(iTau,iSize))
         ! New fits
-        refl_ice_new(iTau,iSize)  = compute_toa_reflectace(1, tau(iTau), g_liq_new(iSize), ssa_liq_new(iSize))
-        predicted_refl_ice_new(:) = two_stream_reflectance(tau(iTau), g_w_new, w0_w_new)
-        sizeICE_new(iTau,iSize)   = 1.0e-06*interpolate_to_min(trial_re_w, predicted_Refl_ice_new, refl_ice_new(iTau,iSize))
+        refl_ice_new(iTau,iSize)  = compute_toa_reflectace(1, tau(iTau), g_ice_new(iSize), ssa_ice_new(iSize))
+        predicted_refl_ice_new(:) = two_stream_reflectance(tau(iTau), g_i_new, w0_i_new)
+        sizeICE_new(iTau,iSize)   = interpolate_to_min(trial_re_i, predicted_Refl_ice_new, refl_ice_new(iTau,iSize))
      enddo
      ! Liquid clouds
      do iSize=re_liq_range(1),re_liq_range(2)
         ! Old fits
         refl_liq_old(iTau,iSize)  = compute_toa_reflectace(1, tau(iTau), g_liq_old(iSize), ssa_liq_old(iSize))
         predicted_refl_liq_old(:) = two_stream_reflectance(tau(iTau), g_w_old, w0_w_old)
-        sizeLIQ_old(iTau,iSize)   = 1.0e-06*interpolate_to_min(trial_re_w, predicted_Refl_liq_old, refl_liq_old(iTau,iSize))
+        sizeLIQ_old(iTau,iSize)   = interpolate_to_min(trial_re_w, predicted_Refl_liq_old, refl_liq_old(iTau,iSize))
         ! New fits
         refl_liq_new(iTau,iSize)  = compute_toa_reflectace(1, tau(iTau), g_liq_new(iSize), ssa_liq_new(iSize))
         predicted_refl_liq_new(:) = two_stream_reflectance(tau(iTau), g_w_new, w0_w_new)
-        sizeLIQ_new(iTau,iSize)   = 1.0e-06*interpolate_to_min(trial_re_w, predicted_Refl_liq_new, refl_liq_new(iTau,iSize))
+        sizeLIQ_new(iTau,iSize)   = interpolate_to_min(trial_re_w, predicted_Refl_liq_new, refl_liq_new(iTau,iSize))
      enddo
   enddo
   
